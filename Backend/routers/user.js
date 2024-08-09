@@ -2,189 +2,122 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const User = require('../models/user');
-const { Course } = require('../models/course');
-const { route } = require('./course');
 
-//Route to render the login page
-router.get("/login", (req,res) => {
-    res.render('login', {
-        messages: {
-            error: req.flash('error')
-        }
-    });
-});
+// Helper function to send the session user's info without the password
+const getUserSessionInfo = (user) => {
+    const { password, ...userInfo } = user._doc; // Assuming that the user model includes a password
+    return userInfo;
+};
 
-//Route to handle user login
+// Route to handle user login
 router.post("/login", async (req, res) => {
     try {
-        const email = req.body.email.trim();
-        console.log("Searching for user with email:", email);
-        const user = await User.findOne({ email: email });
+        const { email, password } = req.body;
+        const user = await User.findOne({ email }).select('+password'); // Ensure the password is selected if it's set not to select by default
         if (!user) {
-            req.flash('error', 'User account cannot be found.');
-            return res.redirect('/api/v1/user/login');
+            return res.status(404).json({ error: 'User account cannot be found.' });
         }
 
-        // Compare the hash password from the database with the plain text
-        const isPasswordMatch = await bcrypt.compare(req.body.password, user.password);
+        const isPasswordMatch = await bcrypt.compare(password, user.password);
         if (isPasswordMatch) {
-            req.session.user = user;  // Store user information in session
-
-            // Redirect based on user role
-            switch (user.userType) {
-                case 'student':
-                    res.redirect('/dashboard');
-                    break;
-                case 'teacher':
-                    res.redirect('/dashboardTeacher');
-                    break;
-                case 'admin':
-                    res.redirect('/dashboardAdmin');
-                    break;
-                default:
-                    res.redirect('/');
-            }
+            req.session.user = getUserSessionInfo(user);
+            return res.json({ message: 'Login successful', user: req.session.user });
         } else {
-            req.flash('error', 'Incorrect password');
-            res.redirect('/api/v1/user/login');
+            return res.status(401).json({ error: 'Incorrect password' });
         }
     } catch (error) {
         console.error(error);
-        req.flash('error', 'An error occurred during login');
-        res.redirect('/api/v1/user/login');
+        return res.status(500).json({ error: 'An error occurred during login' });
     }
-});
-
-// Route to render the signup page
-router.get("/signup", (req, res) => {
-    res.render('signup', {
-        messages: {
-            error: req.flash('error'),
-            success: req.flash('success')
-        }
-    });
 });
 
 // Route to handle user registration
 router.post('/signup', async (req, res) => {
     try {
-        const existingUser = await User.findOne({ email: req.body.email });
+        const { userType, firstName, lastName, email, password } = req.body;
+        const existingUser = await User.findOne({ email });
         if (existingUser) {
-            req.flash('error', 'Email already in use, please try another email');
-            return res.redirect('/api/v1/user/signup');
+            return res.status(409).json({ error: 'Email already in use, please try another email' });
         }
 
-        const hashedPassword = await bcrypt.hash(req.body.password, 10);
+        const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new User({
-            userType: req.body.userType,
-            firstName: req.body.firstName,
-            lastName: req.body.lastName,
-            email: req.body.email,
+            userType,
+            firstName,
+            lastName,
+            email,
             password: hashedPassword
         });
 
         await newUser.save();
-        req.flash('success', 'User created successfully. Please login.');
-        res.redirect('/api/v1/user/signup');
+        return res.status(201).json({ message: 'User created successfully. Please login.' });
     } catch (error) {
         console.error(error);
-        req.flash('error', error.message);
-        res.redirect('/api/v1/user/signup');
+        return res.status(400).json({ error: error.message });
     }
 });
 
 // Route to log out
 router.get('/logout', (req, res) => {
-    req.session.destroy(() => {
-        res.redirect('/api/v1/user/login');
+    req.session.destroy(err => {
+        if (err) {
+            return res.status(500).json({ error: 'Failed to log out' });
+        }
+        res.json({ message: 'Logout successful' });
     });
 });
 
 // Student registers for a course
 router.post('/register-course', async (req, res) => {
-    try {
-        const { userId, courseId } = req.body;
-        const user = await User.findById(userId);
-        // Check if already registered before
-        if (user.courses.some(c => c.course.toString() === courseId)) {
-            return res.status(400).json({ message: "Already registered for this course" });
-        }
-        // Add course with pending status
-        user.courses.push({ course: courseId, status: 'pending' });
-        await user.save();
-
-        res.status(200).json({ message: "Registration pending approval" });
-    } catch (error) {
-        res.status(500).json({ message: "Error registering for course", error: error.message });
+    const { userId, courseId } = req.body;
+    const user = await User.findById(userId);
+    if (user.courses.some(c => c.course.toString() === courseId)) {
+        return res.status(400).json({ error: "Already registered for this course" });
     }
+
+    user.courses.push({ course: courseId, status: 'pending' });
+    await user.save();
+    res.status(200).json({ message: "Registration pending approval" });
 });
 
-// API to retrieve all students with pending course registrations
+// Route to handle API to retrieve all students with pending course registrations
 router.get('/students/pending', async (req, res) => {
-    try {
-        // Find all users with courses that have a status of 'pending'
-        const studentsWithPendingCourses = await User.find({
-            'courses.status': 'pending'
-        }).populate('courses.course');
-
-        // Filter and restructure the data to be more readable
-        const pendingRegistrations = studentsWithPendingCourses.map(user => ({
-            userId: user._id,
-            userName: `${user.firstName} ${user.lastName}`,
-            userEmail: user.email,
-            pendingCourses: user.courses.filter(course => course.status === 'pending').map(course => ({
-                courseId: course.course._id,
-                courseName: course.course.name,
-                registrationDate: course.registrationDate
-            }))
-        }));
-
-        res.status(200).json(pendingRegistrations);
-    } catch (error) {
-        console.error('Error fetching students with pending course registrations:', error);
-        res.status(500).json({ message: "Error fetching data", error: error.message });
-    }
+    const studentsWithPendingCourses = await User.find({ 'courses.status': 'pending' }).populate('courses.course');
+    const pendingRegistrations = studentsWithPendingCourses.map(user => ({
+        userId: user._id,
+        userName: `${user.firstName} ${user.lastName}`,
+        userEmail: user.email,
+        pendingCourses: user.courses.filter(course => course.status === 'pending').map(course => ({
+            courseId: course.course._id,
+            courseName: course.course.name,
+            registrationDate: course.registrationDate
+        }))
+    }));
+    res.json(pendingRegistrations);
 });
 
 // Route to approve a student's course registration
 router.post('/students/approve/:userId/:courseId', async (req, res) => {
     const { userId, courseId } = req.params;
-    try {
-        const user = await User.findById(userId);
-        const course = user.courses.find(c => c.course.toString() === courseId);
-        if (course) {
-            course.status = 'registered'; // Change status to registered
-            await user.save();
-
-           // Add userId to course students only if not already present using ($addToSet:)
-            const updatedCourse = await Course.findByIdAndUpdate(courseId, {
-                $addToSet: { students: userId }
-            }, { new: true });  // Returns the updated document
-
-            res.status(200).json({ message: 'Registration approved' });
-        } else {
-            res.status(404).send('Registration not found');
-        }
-    } catch (error) {
-        console.error('Error approving registration:', error);
-        res.status(500).send('Error approving registration');
+    const user = await User.findById(userId);
+    const courseIndex = user.courses.findIndex(c => c.course.toString() === courseId);
+    if (courseIndex !== -1) {
+        user.courses[courseIndex].status = 'registered';
+        await user.save();
+        await Course.findByIdAndUpdate(courseId, { $addToSet: { students: userId } }, { new: true });
+        res.json({ message: 'Registration approved' });
+    } else {
+        res.status(404).json({ error: 'Registration not found' });
     }
 });
 
 // Route to delete a student's course registration
 router.delete('/students/delete/:userId/:courseId', async (req, res) => {
     const { userId, courseId } = req.params;
-    try {
-        const user = await User.findById(userId);
-        user.courses = user.courses.filter(c => c.course.toString() !== courseId);
-        await user.save();
-        res.status(200).json({ message: 'Registration deleted' });
-    } catch (error) {
-        console.error('Error deleting registration:', error);
-        res.status(500).send('Error deleting registration');
-    }
+    const user = await User.findById(userId);
+    user.courses = user.courses.filter(c => c.course.toString() !== courseId);
+    await user.save();
+    res.json({ message: 'Registration deleted' });
 });
 
-
-// Export the router
 module.exports = router;
