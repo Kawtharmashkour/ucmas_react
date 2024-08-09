@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import styles from './Signup.css';
+import { useNavigate } from 'react-router-dom';
 
 function Signup() {
     const [formData, setFormData] = useState({
@@ -12,6 +13,7 @@ function Signup() {
         confirmPassword: ''
     });
     const [message, setMessage] = useState({ error: '', success: '' });
+    const navigate = useNavigate();
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -21,15 +23,15 @@ function Signup() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (formData.password !== formData.confirmPassword) {
-            setMessage({ ...message, error: 'Passwords do not match' });
+            setMessage({ error: 'Passwords do not match', success: '' });
             return;
         }
         try {
             const response = await axios.post('/api/v1/user/signup', formData);
             setMessage({ error: '', success: 'User created successfully. Please login.' });
-            // Redirect or further actions
+            navigate('/login'); // Redirect to login after successful signup
         } catch (error) {
-            setMessage({ error: error.response.data, success: '' });
+            setMessage({ error: error.response?.data?.error || 'An error occurred', success: '' });
         }
     };
 

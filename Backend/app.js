@@ -7,13 +7,13 @@ const bcrypt = require('bcrypt');
 const session = require('express-session');
 const flash = require('connect-flash');
 
+require('dotenv').config();
+const api = process.env.API_URL || '/api'; // Default API path
+
 // DB Schemas
 const User = require('./models/user');
 const Program = require('./models/program');
 const Course = require('./models/course');
-
-require('dotenv').config();
-const api = process.env.API_URL;
 
 // Middleware
 app.use(express.json());
@@ -25,13 +25,8 @@ app.use(session({
     secret: 'secretkey',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false, maxAge: 3600000 } // secure: true in production if using HTTPS
+    cookie: { secure: process.env.NODE_ENV === "production", maxAge: 3600000 }
 }));
-
-// Serve static files from the React app build directory in production
-if (process.env.NODE_ENV === "production") {
-    app.use(express.static(path.join(__dirname, '..', 'frontend', 'build')));
-}
 
 // API routes
 const courseRouters = require('./routers/course');
@@ -44,10 +39,13 @@ app.use(`${api}/program`, programRouters);
 app.use(`${api}/user`, userRouters);
 app.use(`${api}/grade`, gradeRouters);
 
-// Handle React routing, return all requests to React app
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
-});
+// Serve static files from the React app build directory in production
+if (process.env.NODE_ENV === "production") {
+    app.use(express.static(path.join(__dirname, '..', 'frontend', 'build')));
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
+    });
+}
 
 // Database connection
 mongoose.connect(process.env.DB_CONNECTION_STR, {
@@ -60,7 +58,7 @@ mongoose.connect(process.env.DB_CONNECTION_STR, {
 });
 
 // Start the server
-const port = process.env.PORT || 3001; // Change to a different port if 5000 is in use
+const port = process.env.PORT || 3001; // Use the port from environment or default to 3001
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
