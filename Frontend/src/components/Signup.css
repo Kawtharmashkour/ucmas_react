@@ -1,0 +1,136 @@
+*{
+    font-family: 'Poppins', sans-serif;
+}
+
+.wrapper{
+    background: #ececec;
+    padding: 0 20px 0 20px;
+}
+
+.main{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+.row{
+    width: 1300px;
+    height: 700px;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 5px 5px 10px 1px rgba(0,0,0,0.2);
+}
+
+.logo img{
+    width: 300px;
+    position: absolute;
+    top: 30px;
+    left: 30px;
+}
+
+.girl img{
+    width: 400px;
+    position: absolute;
+    top: 200px;
+    left: 100px;
+}
+
+.side-image{
+    background-color: #59d5e0;
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    position: relative;
+    border-radius: 10px 0 0 10px;
+}
+
+.text{
+    position: absolute;
+    top: 85%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.text p{
+    color:rgba(114,115,118,1);
+    font-size: 25px;
+}
+
+.right{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.input-box{
+    width: 330px;
+    box-sizing: border-box;
+}
+
+.input-box header{
+    font-weight: 700;
+    font-size: 30px;
+    text-align: center;
+    margin-bottom: 45px;
+}
+
+.input-field{
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    padding:0 10px 0 10px;
+}
+
+.input{
+    height: 45px;
+    width: 100%;
+    background: transparent;
+    border:none;
+    border-bottom: 1px solid rgba(0,0,0,0.2);
+    outline: none;
+    margin-bottom: 20px;
+    color: #40414a;
+}
+
+.input-box .input-field label{
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    pointer-events: none;
+    transition: .5s;
+}
+
+.input-field .input:focus ~ label{
+    top: -10px;
+    font-size: 13px;
+}
+
+.input-field .input:valid ~ label{
+    top: -10px;
+    font-size: 13px;
+    color: #5d5076;
+}
+
+*{
+    font-family: montserrat;
+}
+
+.wrapper{
+    background:  rgb(240,240,240);
+}
+.navbar{
+    background-color:transparent !important;
+    font-size: 25px;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+.navbar-nav .nav-link:hover, .navbar-nav .nav-link:focus{
+    color:#FAA300;
+}
+
+.navbar-nav a {
+    font-size: 18px;
+    font-weight: 500;
+}

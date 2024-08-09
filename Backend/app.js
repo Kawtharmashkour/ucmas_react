@@ -25,17 +25,12 @@ app.use(session({
     secret: 'secretkey',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false, maxAge: 3600000 }
+    cookie: { secure: false, maxAge: 3600000 } // secure: true in production if using HTTPS
 }));
 
 // Serve static files from the React app build directory in production
 if (process.env.NODE_ENV === "production") {
     app.use(express.static(path.join(__dirname, '..', 'frontend', 'build')));
-
-    // Handles any requests that don't match the ones above
-    app.get('*', (req, res) =>{
-        res.sendFile(path.join(__dirname, '..', 'frontend', 'build', 'index.html'));
-    });
 }
 
 // API routes
@@ -49,9 +44,7 @@ app.use(`${api}/program`, programRouters);
 app.use(`${api}/user`, userRouters);
 app.use(`${api}/grade`, gradeRouters);
 
-// After all your API routes
-app.use(express.static(path.join(__dirname, '../frontend/build')));
-
+// Handle React routing, return all requests to React app
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
 });
@@ -67,7 +60,7 @@ mongoose.connect(process.env.DB_CONNECTION_STR, {
 });
 
 // Start the server
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001; // Change to a different port if 5000 is in use
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
